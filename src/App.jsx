@@ -2,13 +2,22 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Cpu, ShieldCheck, Wrench, Headphones, ArrowRight, Check, Mail,
-  MessageCircle, Github, Linkedin, Calendar, Code2, Copy
+  MessageCircle, Github, Linkedin, Calendar, Code2, Copy, ExternalLink,
+  Sun, Moon, Star
 } from "lucide-react";
 
-// 🔧 Cole aqui seu endpoint real do Formspree:
+// 🔧 Formulário (Formspree)
 const FORMSPREE_ENDPOINT = "https://formspree.io/f/xrbazgvo";
-// ✅ Seu Calendly (30min):
+// ✅ Calendly (30min)
 const CALENDLY_URL = "https://calendly.com/gui-gomes-aschi/30min";
+
+// Métricas estáveis (fora do componente) para evitar exhaustive-deps
+const METRICS = [
+  { k: "Projetos entregues", v: 12 },
+  { k: "Implantações", v: 40 },
+  { k: "Integrações/API", v: 18 },
+  { k: "SLA cumprido", v: 99 },
+];
 
 export default function App() {
   // ---------- Estados ----------
@@ -17,8 +26,15 @@ export default function App() {
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
 
-  const [servico, setServico] = useState("Onboarding SaaS");
-  const [msgWA, setMsgWA] = useState("Olá, Guilherme! Quero um orçamento.");
+  const [servico, setServico] = useState("Criação de site");
+  const [msgWA, setMsgWA] = useState("Olá! Quero solicitar um orçamento.");
+
+  // Tema claro/escuro (persiste)
+  const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", theme === "dark");
+    localStorage.setItem("theme", theme);
+  }, [theme]);
 
   // ---------- Utilidades ----------
   function copyEmail() {
@@ -26,13 +42,13 @@ export default function App() {
     setToast("E-mail copiado!");
     setTimeout(() => setToast(""), 2000);
   }
-  function scrollToContato() {
-    document.querySelector("#contato")?.scrollIntoView({ behavior: "smooth" });
+  function scrollTo(el) {
+    document.querySelector(el)?.scrollIntoView({ behavior: "smooth" });
   }
   function abrirWhatsApp() {
     const base = "https://wa.me/5551995739787";
     const text = encodeURIComponent(`[${servico}] ${msgWA}`);
-    window.open(`${base}?text=${text}`, "_blank");
+    window.open(`${base}?text=${text}`, "_blank", "noopener,noreferrer");
   }
   function getFormVals() {
     const form = document.querySelector('#contato form');
@@ -41,21 +57,22 @@ export default function App() {
     return { name, email };
   }
 
-  // ---------- Calendly: pré-carregar script + CSS ----------
+  // ---------- Calendly (injeta CSS/JS) ----------
   useEffect(() => {
-    // CSS (caso não esteja no index.html)
     if (!document.querySelector('link[href*="calendly.com/assets/external/widget.css"]')) {
       const link = document.createElement("link");
       link.rel = "stylesheet";
       link.href = "https://assets.calendly.com/assets/external/widget.css";
       document.head.appendChild(link);
     }
-    // Script
     const s = document.createElement("script");
     s.src = "https://assets.calendly.com/assets/external/widget.js";
     s.async = true;
     document.body.appendChild(s);
-    return () => { try { document.body.removeChild(s); } catch {} };
+    return () => {
+      try { document.body.removeChild(s); }
+      catch (err) { console.debug("Calendly cleanup:", err?.message); }
+    };
   }, []);
 
   function openCalendlyPrefilled() {
@@ -63,32 +80,22 @@ export default function App() {
     const params = new URLSearchParams();
     if (name) params.set("name", name);
     if (email) params.set("email", email);
-    // a1 e a2 devem corresponder à ordem das suas Invitee Questions no Calendly
     params.set("a1", servico);
     params.set("a2", msgWA);
-
     const url = `${CALENDLY_URL}?${params.toString()}`;
-
     if (window.Calendly?.initPopupWidget) {
-      try {
-        window.Calendly.initPopupWidget({ url });
-      } catch {
+      try { window.Calendly.initPopupWidget({ url }); }
+      catch (err) {
+        console.debug("Calendly popup falhou, abrindo nova aba:", err?.message);
         window.open(url, "_blank", "noopener,noreferrer");
       }
     } else {
-      // Fallback: primeira vez pode abrir em nova aba enquanto o script carrega
       window.open(url, "_blank", "noopener,noreferrer");
     }
   }
 
   // ---------- Contadores ----------
-  const metrics = [
-    { k: "Implantações", v: 40 },
-    { k: "NPS médio", v: 92 },
-    { k: "Integrações/API", v: 18 },
-    { k: "SLA cumprido", v: 99 },
-  ];
-  const [counts, setCounts] = useState(metrics.map(() => 0));
+  const [counts, setCounts] = useState(METRICS.map(() => 0));
   const seenRef = useRef(false);
   useEffect(() => {
     const el = document.getElementById("numeros");
@@ -99,7 +106,7 @@ export default function App() {
         const duration = 1200, start = performance.now();
         const step = (t) => {
           const p = Math.min(1, (t - start) / duration);
-          setCounts(metrics.map(m => Math.round(m.v * p)));
+          setCounts(METRICS.map(m => Math.round(m.v * p)));
           if (p < 1) requestAnimationFrame(step);
         };
         requestAnimationFrame(step);
@@ -111,16 +118,33 @@ export default function App() {
 
   // ---------- Dados ----------
   const services = [
-    { icon: <Wrench className="w-6 h-6" />, title: "Suporte & Implementação",
-      bullets: ["Onboarding de sistemas SaaS", "Telefonia SIP/VoIP", "Treinamentos e documentação"] },
-    { icon: <ShieldCheck className="w-6 h-6" />, title: "Infra & Segurança",
-      bullets: ["Hardening básico", "Backups e acessos", "Monitoramento e incidentes"] },
-    { icon: <Cpu className="w-6 h-6" />, title: "Automação & APIs",
-      bullets: ["REST (GET/POST)", "WhatsApp API (Meta)", "Scripts e rotinas"] },
-    { icon: <Headphones className="w-6 h-6" />, title: "Customer Success",
-      bullets: ["Jornadas & NPS", "Playbooks de adoção", "Redução de churn"] },
+    { icon: <Wrench className="w-6 h-6" />, title: "Criação de Sites",
+      bullets: ["Landing pages modernas", "Sites institucionais", "SEO básico & performance"] },
+    { icon: <Cpu className="w-6 h-6" />, title: "Apps & Integrações",
+      bullets: ["SPA com React/Vite", "Integração com APIs (Meta/WhatsApp)", "Automação de rotinas"] },
+    { icon: <ShieldCheck className="w-6 h-6" />, title: "Infra & Deploy",
+      bullets: ["Hospedagem Vercel", "Domínio e SSL", "Boas práticas e monitoramento"] },
+    { icon: <Headphones className="w-6 h-6" />, title: "Suporte & CS",
+      bullets: ["Onboarding e documentação", "Playbooks de adoção", "Acompanhamento contínuo"] },
   ];
-  const skills = ["SIP/VoIP", "APIs REST", "Linux (shell)", "Windows Server", "Redes (básico)", "MySQL/SQL", "HTML/CSS/JS", "Git/GitHub"];
+
+  const projetos = [
+    { nome: "Website para SaaS X", desc: "Landing page com captação de leads e integração com formulário.", tags: ["React", "Tailwind", "Vercel"], link: "#" },
+    { nome: "App interno de chamados", desc: "Aplicação web para gestão de tickets e SLAs.", tags: ["React", "API", "Automação"], link: "#" },
+    { nome: "Site institucional — Cliente Y", desc: "Site institucional rápido, responsivo e com SEO básico.", tags: ["Vite", "SEO", "A11y"], link: "#" },
+  ];
+
+  const parceiros = [
+    { nome: "Cliente/Parceiro A", logo: "/partners/placeholder.svg" },
+    { nome: "Cliente/Parceiro B", logo: "/partners/placeholder.svg" },
+    { nome: "Cliente/Parceiro C", logo: "/partners/placeholder.svg" },
+  ];
+
+  const depoimentos = [
+    { nome: "Mariana P.", cargo: "CEO — Startup X", texto: "O Guilherme entregou nosso site rápido e com ótimo cuidado de performance. Comunicação 10/10.", rating: 5 },
+    { nome: "Rafael L.", cargo: "Head de Produto — Empresa Y", texto: "Integrações com API concluídas sem dor de cabeça. Documentação e handoff muito claros.", rating: 5 },
+    { nome: "Carla M.", cargo: "CS Lead — SaaS Z", texto: "Onboarding redondo, playbooks e métricas de adoção bem montados. Recomendo.", rating: 5 },
+  ];
 
   // ---------- Formspree ----------
   async function handleSubmit(e) {
@@ -147,24 +171,28 @@ export default function App() {
         const j = await res.json().catch(() => ({}));
         setError(j?.errors?.[0]?.message || "Formulário não encontrado (confira endpoint e Allowed Domains).");
       }
-    } catch {
+    } catch (err) {
       setError("Falha de rede. Tente novamente.");
+      console.debug("Formspree erro:", err?.message);
     } finally { setSending(false); }
   }
 
-  // ---------- Botões estilizados ----------
-  const GButton = ({ children, className = "", onClick, type }) => (
-    <button type={type} onClick={onClick}
+  // ---------- Botões ----------
+  const GButton = ({ children, className = "", onClick, type = "button", disabled = false }) => (
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
       className={`group inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-fuchsia-500 via-indigo-500 to-cyan-500 p-[2px]
-                  hover:scale-[1.02] hover:-translate-y-0.5 active:scale-[.98] transition ${className}`}>
+                  ${disabled ? "opacity-60 pointer-events-none" : "hover:scale-[1.02] hover:-translate-y-0.5 active:scale-[.98]"} transition ${className}`}>
       <span className="rounded-2xl bg-neutral-950/90 px-4 py-2 text-sm font-semibold text-white group-hover:bg-transparent">
         {children}
       </span>
     </button>
   );
   const GLink = ({ children, href, target }) => (
-    <a href={href} target={target}
-      className="group inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-fuchsia-500 via-indigo-500 to-cyan-500 p-[2px]">
+    <a href={href} target={target} rel="noopener noreferrer"
+       className="group inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-fuchsia-500 via-indigo-500 to-cyan-500 p-[2px]">
       <span className="rounded-2xl bg-neutral-950/90 px-4 py-2 text-sm font-semibold text-white group-hover:bg-transparent">
         {children}
       </span>
@@ -173,7 +201,7 @@ export default function App() {
 
   // ---------- UI ----------
   return (
-    <main className="min-h-screen bg-neutral-950 text-neutral-100 relative overflow-hidden">
+    <main className="min-h-screen bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100 relative overflow-hidden">
       {/* Fundo */}
       <div className="pointer-events-none absolute inset-0 -z-10">
         <div className="aurora absolute -top-24 -left-24 h-[520px] w-[520px] rounded-full bg-fuchsia-500/25" />
@@ -183,21 +211,34 @@ export default function App() {
       </div>
 
       {/* NAV */}
-      <header className="sticky top-0 z-50 backdrop-blur border-b border-neutral-800/60 bg-neutral-950/70">
+      <header className="sticky top-0 z-50 backdrop-blur border-b border-neutral-200 dark:border-neutral-800 bg-white/70 dark:bg-neutral-950/70">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <a href="#home" className="font-semibold text-lg flex items-center gap-2">
             <Code2 className="w-5 h-5" /> Guilherme Suporte TI
           </a>
-          <nav className="hidden md:flex items-center gap-6 text-sm text-neutral-300">
-            <a className="hover:text-white" href="#servicos">Serviços</a>
-            <a className="hover:text-white" href="#skills">Skills</a>
-            <a className="hover:text-white" href="#sobre">Sobre</a>
-            <a className="hover:text-white" onClick={scrollToContato}>Contato</a>
+          <nav className="hidden md:flex items-center gap-6 text-sm text-neutral-700 dark:text-neutral-300">
+            <a className="hover:text-neutral-900 dark:hover:text-white" href="#servicos">Serviços</a>
+            <a className="hover:text-neutral-900 dark:hover:text-white" href="#projetos">Projetos</a>
+            <a className="hover:text-neutral-900 dark:hover:text-white" href="#depoimentos">Depoimentos</a>
+            <a className="hover:text-neutral-900 dark:hover:text-white" href="#clientes">Clientes</a>
+            <a className="hover:text-neutral-900 dark:hover:text-white" href="#skills">Skills</a>
+            <a className="hover:text-neutral-900 dark:hover:text-white" href="#sobre">Sobre</a>
+            <a className="hover:text-neutral-900 dark:hover:text-white" onClick={() => scrollTo("#contato")}>Contato</a>
           </nav>
           <div className="flex items-center gap-3">
-            <a href="https://github.com/" target="_blank" className="p-2 rounded-xl border border-neutral-800 hover:bg-neutral-900"><Github className="w-4 h-4" /></a>
-            <a href="https://www.linkedin.com/in/guilhermeaschi/" target="_blank" className="p-2 rounded-xl border border-neutral-800 hover:bg-neutral-900"><Linkedin className="w-4 h-4" /></a>
-            <GButton onClick={openCalendlyPrefilled}><Calendar className="w-4 h-4" /> Agende um papo</GButton>
+            <button
+              onClick={() => setTheme(t => t === "dark" ? "light" : "dark")}
+              className="p-2 rounded-xl border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-900"
+              aria-label="Alternar tema"
+              title="Alternar tema"
+            >
+              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
+            <a href="https://github.com/" target="_blank" rel="noopener noreferrer"
+               className="p-2 rounded-xl border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-900"><Github className="w-4 h-4" /></a>
+            <a href="https://www.linkedin.com/in/guilhermeaschi/" target="_blank" rel="noopener noreferrer"
+               className="p-2 rounded-xl border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-900"><Linkedin className="w-4 h-4" /></a>
+            <GButton onClick={openCalendlyPrefilled}><Calendar className="w-4 h-4" /> Solicitar orçamento</GButton>
           </div>
         </div>
       </header>
@@ -205,90 +246,139 @@ export default function App() {
       {/* HERO */}
       <section id="home" className="max-w-6xl mx-auto px-4 py-16 md:py-24">
         <h1 className="text-4xl md:text-6xl font-bold leading-tight">
-          Suporte, CS e Automação{" "}
+          Desenvolvedor Jr —{" "}
           <span className="bg-clip-text text-transparent bg-gradient-to-r from-fuchsia-400 via-indigo-400 to-cyan-400">
-            para seu negócio
-          </span>.
+            crio sites e apps
+          </span>{" "}
+          que geram resultado.
         </h1>
-        <p className="mt-4 text-neutral-300 max-w-prose">
-          Implanto e otimizo SaaS, SIP/VoIP e integrações com APIs (Meta/WhatsApp) para acelerar o Time-to-Value,
-          reduzir chamados e aumentar a satisfação do cliente.
+        <p className="mt-4 text-neutral-700 dark:text-neutral-300 max-w-prose">
+          Eu mesmo criei este site do zero (React + Vite + Tailwind). Faço landing pages, sites institucionais,
+          aplicações web e integrações com APIs — com hospedagem, domínio e SSL prontos para produção.
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
-          <GLink href="https://wa.me/5551995739787?text=Ol%C3%A1%20Guilherme!%20Quero%20um%20or%C3%A7amento%20de%20TI." target="_blank">
+          <GButton onClick={() => scrollTo("#contato")}>
+            Solicitar orçamento <ArrowRight className="w-4 h-4" />
+          </GButton>
+          <GLink href="https://wa.me/5551995739787?text=Ol%C3%A1!%20Quero%20um%20or%C3%A7amento." target="_blank">
             <MessageCircle className="w-4 h-4" /> WhatsApp
           </GLink>
-          <GButton onClick={() => document.querySelector("#servicos")?.scrollIntoView({ behavior: "smooth" })}>
-            Ver serviços <ArrowRight className="w-4 h-4" />
-          </GButton>
         </div>
-        <ul className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-neutral-300">
-          {["Implantações ponta a ponta","Playbooks e métricas de CS","Automação com APIs (Meta/WhatsApp)","Monitoramento e documentação"]
-            .map(t => <li key={t} className="flex gap-2 items-start"><Check className="w-4 h-4 mt-0.5" />{t}</li>)}
+        <ul className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-neutral-700 dark:text-neutral-300">
+          {[
+            "Sites responsivos e rápidos",
+            "SPA com React/Vite",
+            "Integrações com APIs (Meta/WhatsApp)",
+            "Deploy na Vercel com domínio e SSL"
+          ].map(t => <li key={t} className="flex gap-2 items-start"><Check className="w-4 h-4 mt-0.5" />{t}</li>)}
         </ul>
       </section>
 
       {/* SERVIÇOS */}
       <section id="servicos" className="max-w-6xl mx-auto px-4 py-16">
         <h2 className="text-2xl md:text-3xl font-bold">Serviços</h2>
-        <p className="text-neutral-300 mt-2">Pacotes sob medida com SLA e documentação.</p>
+        <p className="text-neutral-700 dark:text-neutral-300 mt-2">Sem pacotes fixos. <strong>Solicite um orçamento</strong> conforme sua necessidade.</p>
         <div className="mt-8 grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {services.map((s) => (
             <article key={s.title} className="rounded-3xl p-[1px] bg-gradient-to-br from-fuchsia-700/40 via-indigo-700/30 to-cyan-700/30">
-              <div className="rounded-3xl h-full bg-neutral-900/60 p-6 border border-neutral-800">
-                <div className="flex items-center gap-2 text-white font-semibold">{s.icon} {s.title}</div>
-                <ul className="mt-3 space-y-2 text-neutral-300">
-                  {s.bullets.map(b => <li key={b} className="flex gap-2"><span className="text-neutral-600">▹</span>{b}</li>)}
+              <div className="rounded-3xl h-full bg-white/80 dark:bg-neutral-900/60 p-6 border border-neutral-200 dark:border-neutral-800">
+                <div className="flex items-center gap-2 text-neutral-900 dark:text-white font-semibold">{s.icon} {s.title}</div>
+                <ul className="mt-3 space-y-2 text-neutral-700 dark:text-neutral-300">
+                  {s.bullets.map(b => <li key={b} className="flex gap-2"><span className="text-neutral-400 dark:text-neutral-600">▹</span>{b}</li>)}
                 </ul>
               </div>
             </article>
           ))}
         </div>
-      </section>
-
-      {/* SKILLS */}
-      <section id="skills" className="max-w-6xl mx-auto px-4 py-16 border-t border-neutral-900">
-        <h2 className="text-2xl md:text-3xl font-bold">Stack & Skills</h2>
-        <div className="mt-6 flex flex-wrap gap-2">
-          {skills.map(k => <span key={k} className="px-3 py-1 rounded-full border border-neutral-800 bg-neutral-900/60 text-sm">{k}</span>)}
+        <div className="mt-6">
+          <GButton onClick={() => scrollTo("#contato")}><Calendar className="w-4 h-4" /> Pedir orçamento</GButton>
         </div>
       </section>
 
-      {/* NÚMEROS */}
-      <section id="numeros" className="max-w-6xl mx-auto px-4 py-16 border-t border-neutral-900">
-        <h2 className="text-2xl md:text-3xl font-bold">Resultados em números</h2>
-        <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-6">
-          {metrics.map((m, i) => (
-            <div key={m.k} className="rounded-3xl p-[1px] bg-gradient-to-br from-fuchsia-700/40 via-indigo-700/30 to-cyan-700/30">
-              <div className="rounded-3xl bg-neutral-900/60 p-6 border border-neutral-800 text-center">
-                <div className="text-4xl font-extrabold">{counts[i]}{(m.k==="NPS médio"||m.k==="SLA cumprido")?"%":""}</div>
-                <div className="text-neutral-300 mt-1">{m.k}</div>
+      {/* PROJETOS */}
+      <section id="projetos" className="max-w-6xl mx-auto px-4 py-16 border-t border-neutral-200 dark:border-neutral-900">
+        <h2 className="text-2xl md:text-3xl font-bold">Projetos recentes</h2>
+        <p className="text-neutral-700 dark:text-neutral-300 mt-2">Alguns trabalhos e estudos. Em breve, mais cases.</p>
+        <div className="mt-8 grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {projetos.map(p => (
+            <div key={p.nome} className="rounded-3xl p-[1px] bg-gradient-to-br from-fuchsia-700/40 via-indigo-700/30 to-cyan-700/30">
+              <div className="rounded-3xl bg-white/80 dark:bg-neutral-900/60 p-6 border border-neutral-200 dark:border-neutral-800 h-full flex flex-col">
+                <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">{p.nome}</h3>
+                <p className="text-neutral-700 dark:text-neutral-300 mt-2 flex-1">{p.desc}</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {p.tags.map(t => <span key={t} className="px-2 py-0.5 text-xs rounded-full border border-neutral-300 dark:border-neutral-700">{t}</span>)}
+                </div>
+                {p.link !== "#" && (
+                  <a href={p.link} target="_blank" rel="noopener noreferrer"
+                     className="mt-4 inline-flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white">
+                    <ExternalLink className="w-4 h-4" /> Ver projeto
+                  </a>
+                )}
               </div>
             </div>
           ))}
         </div>
       </section>
 
-      {/* PLANOS */}
-      <section className="max-w-6xl mx-auto px-4 py-16 border-t border-neutral-900" id="planos">
-        <h2 className="text-2xl md:text-3xl font-bold">Planos</h2>
+      {/* DEPOIMENTOS */}
+      <section id="depoimentos" className="max-w-6xl mx-auto px-4 py-16 border-t border-neutral-200 dark:border-neutral-900">
+        <h2 className="text-2xl md:text-3xl font-bold">Depoimentos</h2>
+        <p className="text-neutral-700 dark:text-neutral-300 mt-2">
+          O que clientes e parceiros dizem sobre meu trabalho.
+        </p>
+
         <div className="mt-8 grid md:grid-cols-3 gap-6">
-          {[
-            {nome:"Starter", preco:"R$ 490", itens:["Setup básico","2h suporte","WhatsApp assíncrono"]},
-            {nome:"Pro (recomendado)", preco:"R$ 990", hot:true, itens:["Onboarding completo","SIP/VoIP + APIs","6h suporte + SLA"]},
-            {nome:"Enterprise", preco:"Sob consulta", itens:["Implantação avançada","Treinamento equipe","SLA dedicado"]},
-          ].map(p => (
-            <div key={p.nome} className={`rounded-3xl p-[1px] ${p.hot ? "from-fuchsia-600/60" : "from-neutral-700/40"} bg-gradient-to-br via-indigo-700/30 to-cyan-700/30`}>
-              <div className="rounded-3xl bg-neutral-900/60 p-6 border border-neutral-800 h-full flex flex-col">
-                <div className="flex items-baseline justify-between">
-                  <h3 className="text-xl font-semibold">{p.nome}</h3>
-                  {p.hot && <span className="text-xs px-2 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40">+ popular</span>}
+          {depoimentos.map((d) => (
+            <article key={d.nome} className="rounded-3xl p-[1px] bg-gradient-to-br from-fuchsia-700/40 via-indigo-700/30 to-cyan-700/30">
+              <div className="rounded-3xl bg-white/80 dark:bg-neutral-900/60 p-6 border border-neutral-200 dark:border-neutral-800 h-full flex flex-col">
+                <div className="flex items-center gap-1 text-amber-500">
+                  {Array.from({ length: d.rating }).map((_, i) => <Star key={i} className="w-4 h-4 fill-current" />)}
                 </div>
-                <div className="text-3xl font-bold mt-2">{p.preco}</div>
-                <ul className="mt-4 space-y-2 text-neutral-300 flex-1">
-                  {p.itens.map(i => <li key={i} className="flex gap-2"><span className="text-neutral-600">▹</span>{i}</li>)}
-                </ul>
-                <GButton onClick={openCalendlyPrefilled} className="mt-4">Contratar</GButton>
+                <p className="text-neutral-700 dark:text-neutral-300 mt-3 flex-1">“{d.texto}”</p>
+                <div className="mt-4">
+                  <div className="font-semibold text-neutral-900 dark:text-white">{d.nome}</div>
+                  <div className="text-sm text-neutral-600 dark:text-neutral-400">{d.cargo}</div>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      {/* CLIENTES / PARCEIROS */}
+      <section id="clientes" className="max-w-6xl mx-auto px-4 py-16 border-t border-neutral-200 dark:border-neutral-900">
+        <h2 className="text-2xl md:text-3xl font-bold">Clientes & Parceiros</h2>
+        <p className="text-neutral-700 dark:text-neutral-300 mt-2">Espaço para logos e depoimentos. Me chame para incluir o seu 🙂</p>
+        <div className="mt-8 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-6 items-center">
+          {parceiros.map(p => (
+            <div key={p.nome} className="h-16 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/60 flex items-center justify-center">
+              <span className="text-neutral-500 dark:text-neutral-400 text-xs px-2 text-center">{p.nome}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* SKILLS */}
+      <section id="skills" className="max-w-6xl mx-auto px-4 py-16 border-t border-neutral-200 dark:border-neutral-900">
+        <h2 className="text-2xl md:text-3xl font-bold">Stack & Skills</h2>
+        <div className="mt-6 flex flex-wrap gap-2">
+          {["React/Vite", "Tailwind", "APIs REST", "WhatsApp API (Meta)", "Hospedagem Vercel", "Git/GitHub", "SIP/VoIP", "Linux/Windows"].map(k => (
+            <span key={k} className="px-3 py-1 rounded-full border border-neutral-300 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/60 text-sm">{k}</span>
+          ))}
+        </div>
+      </section>
+
+      {/* NÚMEROS */}
+      <section id="numeros" className="max-w-6xl mx-auto px-4 py-16 border-t border-neutral-200 dark:border-neutral-900">
+        <h2 className="text-2xl md:text-3xl font-bold">Resultados</h2>
+        <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-6">
+          {METRICS.map((m, i) => (
+            <div key={m.k} className="rounded-3xl p-[1px] bg-gradient-to-br from-fuchsia-700/40 via-indigo-700/30 to-cyan-700/30">
+              <div className="rounded-3xl bg-white/80 dark:bg-neutral-900/60 p-6 border border-neutral-200 dark:border-neutral-800 text-center">
+                <div className="text-4xl font-extrabold text-neutral-900 dark:text-white">
+                  {counts[i]}{m.k==="SLA cumprido"?"%":""}
+                </div>
+                <div className="text-neutral-700 dark:text-neutral-300 mt-1">{m.k}</div>
               </div>
             </div>
           ))}
@@ -296,32 +386,33 @@ export default function App() {
       </section>
 
       {/* SOBRE */}
-      <section id="sobre" className="max-w-6xl mx-auto px-4 py-16 border-t border-neutral-900">
+      <section id="sobre" className="max-w-6xl mx-auto px-4 py-16 border-t border-neutral-200 dark:border-neutral-900">
         <h2 className="text-2xl md:text-3xl font-bold">Sobre mim</h2>
         <div className="mt-4 grid md:grid-cols-2 gap-8">
-          <p className="text-neutral-300">
-            Sou <span className="text-white font-medium">Guilherme Gomes Aschi</span>, Analista de Suporte e Customer Success.
-            Experiência com implantação de sistemas, SIP/VoIP, integrações com APIs (Meta/WhatsApp) e playbooks orientados a métricas.
+          <p className="text-neutral-700 dark:text-neutral-300">
+            Sou <span className="text-neutral-900 dark:text-white font-medium">Guilherme Gomes Aschi</span>, Desenvolvedor <strong>Jr.</strong> e Analista de Suporte/CS.
+            Crio sites e aplicações web, integro APIs, cuido de hospedagem e processos de implantação. Este site foi
+            desenvolvido por mim com React, Vite e Tailwind, seguindo boas práticas de performance e acessibilidade.
           </p>
-          <ul className="space-y-2 text-neutral-300">
-            {["ADS (La Salle, 2024)","Implementações ponta a ponta","Documentação clara","Comunicação e proatividade"]
+          <ul className="space-y-2 text-neutral-700 dark:text-neutral-300">
+            {["Foco em resultado do cliente", "Comunicação clara e documentação", "Entrega com domínio e SSL", "Evolução contínua (portfólio em expansão)"]
               .map(item => <li key={item} className="flex gap-2"><Check className="w-4 h-4 mt-0.5" /> {item}</li>)}
           </ul>
         </div>
       </section>
 
-      {/* CONTATO */}
-      <section id="contato" className="max-w-6xl mx-auto px-4 py-16 border-t border-neutral-900">
-        <h2 className="text-2xl md:text-3xl font-bold">Vamos conversar?</h2>
-        <p className="text-neutral-300 mt-2">WhatsApp dinâmico, copiar e-mail, Calendly e formulário.</p>
+      {/* CONTATO / ORÇAMENTO */}
+      <section id="contato" className="max-w-6xl mx-auto px-4 py-16 border-t border-neutral-200 dark:border-neutral-900">
+        <h2 className="text-2xl md:text-3xl font-bold">Solicite um orçamento</h2>
+        <p className="text-neutral-700 dark:text-neutral-300 mt-2">Preencha o formulário, chame no WhatsApp ou agende um papo no Calendly.</p>
 
         <div className="mt-8 grid md:grid-cols-2 gap-8">
           {/* Ações rápidas */}
           <div className="rounded-3xl p-[1px] bg-gradient-to-br from-fuchsia-700/40 via-indigo-700/30 to-cyan-700/30">
-            <div className="rounded-3xl bg-neutral-900/60 p-6 border border-neutral-800">
+            <div className="rounded-3xl bg-white/80 dark:bg-neutral-900/60 p-6 border border-neutral-200 dark:border-neutral-800">
               <GButton onClick={openCalendlyPrefilled}><Calendar className="w-4 h-4" /> Agendar via Calendly</GButton>
 
-              <div className="mt-4 space-y-2 text-sm text-neutral-300">
+              <div className="mt-4 space-y-2 text-sm text-neutral-700 dark:text-neutral-300">
                 <p className="flex items-center gap-2"><Mail className="w-4 h-4" /> gui.gomes.aschi@gmail.com</p>
                 <div className="flex items-center gap-2">
                   <GButton onClick={copyEmail}><Copy className="w-4 h-4" /> Copiar e-mail</GButton>
@@ -332,95 +423,80 @@ export default function App() {
 
               <div className="mt-6 grid sm:grid-cols-2 gap-2">
                 <select value={servico} onChange={(e)=>setServico(e.target.value)}
-                        className="rounded-xl bg-neutral-950 border border-neutral-800 px-3 py-2">
-                  <option>Onboarding SaaS</option>
-                  <option>Telefonia SIP/VoIP</option>
-                  <option>Automação/API WhatsApp</option>
+                        className="rounded-xl bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-800 px-3 py-2">
+                  <option>Criação de site</option>
+                  <option>Aplicativo web (SPA)</option>
+                  <option>Integração/API WhatsApp</option>
                   <option>Suporte & Treinamento</option>
                 </select>
                 <button onClick={abrirWhatsApp}
-                        className="rounded-xl bg-emerald-500 font-semibold px-4 py-2 hover:brightness-110">
+                        className="rounded-xl bg-emerald-500 text-white font-semibold px-4 py-2 hover:brightness-110">
                   WhatsApp com mensagem
                 </button>
               </div>
               <textarea value={msgWA} onChange={(e)=>setMsgWA(e.target.value)}
-                        rows={3} placeholder="Descreva rapidamente sua necessidade…"
-                        className="mt-2 w-full rounded-xl bg-neutral-950 border border-neutral-800 px-3 py-2" />
+                        rows={3} placeholder="Conte rapidamente sua necessidade…"
+                        className="mt-2 w-full rounded-xl bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-800 px-3 py-2" />
             </div>
           </div>
 
           {/* Formulário (Formspree) */}
           <form onSubmit={handleSubmit} className="rounded-3xl p-[1px] bg-gradient-to-br from-fuchsia-700/40 via-indigo-700/30 to-cyan-700/30">
-            <div className="rounded-3xl bg-neutral-900/60 p-6 border border-neutral-800">
+            <div className="rounded-3xl bg-white/80 dark:bg-neutral-900/60 p-6 border border-neutral-200 dark:border-neutral-800">
               <input type="text" name="company" className="hidden" tabIndex="-1" autoComplete="off" />
-              <label className="block text-sm text-neutral-300">Seu nome</label>
+              <label className="block text-sm text-neutral-700 dark:text-neutral-300">Seu nome</label>
               <input name="name" required placeholder="Seu nome"
-                     className="mt-1 w-full rounded-xl bg-neutral-950 border border-neutral-800 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-600" />
-              <label className="block text-sm text-neutral-300 mt-4">Seu e-mail</label>
+                     className="mt-1 w-full rounded-xl bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-800 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-600" />
+              <label className="block text-sm text-neutral-700 dark:text-neutral-300 mt-4">Seu e-mail</label>
               <input type="email" name="email" required placeholder="voce@empresa.com"
-                     className="mt-1 w-full rounded-xl bg-neutral-950 border border-neutral-800 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-600" />
-              <label className="block text-sm text-neutral-300 mt-4">Assunto</label>
-              <input name="subject" placeholder="Onboarding SaaS / VoIP / Automação"
-                     className="mt-1 w-full rounded-xl bg-neutral-950 border border-neutral-800 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-600" />
-              <label className="block text-sm text-neutral-300 mt-4">Mensagem</label>
-              <textarea name="message" required rows={5} placeholder="Conte rapidamente sua necessidade…"
-                        className="mt-1 w-full rounded-xl bg-neutral-950 border border-neutral-800 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-600" />
-              {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
-              {sent  && <p className="mt-3 text-sm text-emerald-400">Obrigado! Recebi sua mensagem.</p>}
+                     className="mt-1 w-full rounded-xl bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-800 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-600" />
+              <label className="block text-sm text-neutral-700 dark:text-neutral-300 mt-4">Assunto</label>
+              <input name="subject" placeholder="Criação de site / App / Integração"
+                     className="mt-1 w-full rounded-xl bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-800 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-600" />
+              <label className="block text-sm text-neutral-700 dark:text-neutral-300 mt-4">Mensagem</label>
+              <textarea name="message" required rows={5} placeholder="Descreva rapidamente sua necessidade…"
+                        className="mt-1 w-full rounded-xl bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-800 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-600" />
+              {error && <p className="mt-3 text-sm text-red-500">{error}</p>}
+              {sent  && <p className="mt-3 text-sm text-emerald-600 dark:text-emerald-400">Obrigado! Recebi sua mensagem.</p>}
               <div className="mt-4">
-                <GButton type="submit">Enviar <ArrowRight className="w-4 h-4" /></GButton>
+                <GButton type="submit" disabled={sending}>
+                  {sending ? "Enviando..." : "Enviar"} <ArrowRight className="w-4 h-4" />
+                </GButton>
               </div>
             </div>
           </form>
         </div>
       </section>
 
-      {/* FAQ */}
-      <section className="max-w-6xl mx-auto px-4 py-16 border-t border-neutral-900" id="faq">
-        <h2 className="text-2xl md:text-3xl font-bold">Dúvidas frequentes</h2>
-        <div className="mt-6 space-y-3">
-          {[
-            {q:"Quanto tempo leva um onboarding padrão?", a:"Geralmente 1–2 semanas, com sessões assíncronas e checkpoint ao final."},
-            {q:"Atende remoto e presencial?", a:"Remoto em todo o Brasil; presencial mediante agenda e custo de deslocamento."},
-            {q:"Emite nota fiscal?", a:"Sim. O orçamento já segue com detalhes e condições."},
-          ].map(f => (
-            <details key={f.q} className="group rounded-2xl border border-neutral-800 bg-neutral-900/60 p-4">
-              <summary className="cursor-pointer list-none font-medium flex items-center justify-between">
-                {f.q} <span className="text-neutral-400 group-open:rotate-90 transition">›</span>
-              </summary>
-              <p className="text-neutral-300 mt-2">{f.a}</p>
-            </details>
-          ))}
+      {/* Ações fixas */}
+      <a href="https://wa.me/5551995739787?text=Ol%C3%A1!%20Quero%20falar."
+         target="_blank" rel="noopener noreferrer"
+         className="fixed bottom-5 right-5 rounded-full p-[2px] bg-gradient-to-r from-emerald-500 to-cyan-500 shadow-lg animate-[pulse_2.2s_ease-in-out_infinite]">
+        <div className="rounded-full bg-neutral-950/90 p-3">
+          <MessageCircle className="w-6 h-6 text-white" />
         </div>
-      </section>
+      </a>
 
       {/* Toast */}
       {toast && (
-        <div className="fixed bottom-5 right-5 rounded-xl bg-neutral-900/90 border border-neutral-800 px-4 py-2 text-sm">
+        <div className="fixed bottom-5 right-5 rounded-xl bg-neutral-900/90 text-white border border-neutral-800 px-4 py-2 text-sm">
           {toast}
         </div>
       )}
 
-      {/* Ações fixas */}
-      <a href="https://wa.me/5551995739787?text=Ol%C3%A1%20Guilherme!%20Quero%20falar."
-         target="_blank"
-         className="fixed bottom-5 right-5 rounded-full p-[2px] bg-gradient-to-r from-emerald-500 to-cyan-500 shadow-lg animate-[pulse_2.2s_ease-in-out_infinite]">
-        <div className="rounded-full bg-neutral-950/90 p-3">
-          <MessageCircle className="w-6 h-6" />
-        </div>
-      </a>
-      <div className="md:hidden fixed bottom-0 left-0 right-0 border-t border-neutral-800 bg-neutral-950/95 backdrop-blur p-3 flex gap-2 justify-center">
-        <button onClick={openCalendlyPrefilled} className="rounded-xl bg-white text-neutral-900 font-semibold px-4 py-2">Agendar</button>
-        <button onClick={abrirWhatsApp} className="rounded-xl border border-neutral-700 px-4 py-2">WhatsApp</button>
+      {/* Footer fixo mobile */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 border-t border-neutral-200 dark:border-neutral-800 bg-white/90 dark:bg-neutral-950/95 backdrop-blur p-3 flex gap-2 justify-center">
+        <button onClick={openCalendlyPrefilled} className="rounded-xl bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 font-semibold px-4 py-2">Orçamento</button>
+        <button onClick={abrirWhatsApp} className="rounded-xl border border-neutral-300 dark:border-neutral-700 px-4 py-2">WhatsApp</button>
       </div>
 
       {/* FOOTER */}
-      <footer className="border-t border-neutral-900 mt-16">
-        <div className="max-w-6xl mx-auto px-4 py-8 text-sm text-neutral-400 flex flex-col md:flex-row items-center justify-between gap-3">
-          <p>© {new Date().getFullYear()} Guilherme Suporte TI. Todos os direitos reservados.</p>
+      <footer className="border-t border-neutral-200 dark:border-neutral-900 mt-16">
+        <div className="max-w-6xl mx-auto px-4 py-8 text-sm text-neutral-600 dark:text-neutral-400 flex flex-col md:flex-row items-center justify-between gap-3">
+          <p>© {new Date().getFullYear()} Guilherme Suporte TI. Site desenvolvido por mim.</p>
           <div className="flex gap-4">
-            <a className="hover:text-white" href="/privacidade.html">Política de Privacidade</a>
-            <a className="hover:text-white" href="/termos.html">Termos</a>
+            <a className="hover:text-neutral-900 dark:hover:text-white" href="/privacidade.html">Política de Privacidade</a>
+            <a className="hover:text-neutral-900 dark:hover:text-white" href="/termos.html">Termos</a>
           </div>
         </div>
       </footer>
