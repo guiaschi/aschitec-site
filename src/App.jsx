@@ -214,7 +214,7 @@ export default function App() {
       <header className="sticky top-0 z-50 backdrop-blur border-b border-neutral-200 dark:border-neutral-800 bg-white/70 dark:bg-neutral-950/70">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <a href="#home" className="font-semibold text-lg flex items-center gap-2">
-            <Code2 className="w-5 h-5" /> Guilherme Suporte TI
+            <Code2 className="w-5 h-5" /> Guilherme Desenvolvedor Jr
           </a>
           <nav className="hidden md:flex items-center gap-6 text-sm text-neutral-700 dark:text-neutral-300">
             <a className="hover:text-neutral-900 dark:hover:text-white" href="#servicos">Serviços</a>
